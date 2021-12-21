@@ -1501,7 +1501,22 @@ addFieldsDict(Users, {
     hidden: true,
     canUpdate: ['sunshineRegiment', 'admins'],
     ...schemaDefaultValue(false),
-  }
+  },
+  paymentEmail: {
+    // by default means "paypal email", unless something else is specified in paymentInfo
+    type: String,
+    optional: true,
+    canRead: [userOwns, 'sunshineRegiment', 'admins'],
+    canUpdate: ['admins'],
+    group: formGroups.adminOptions,
+  },
+  paymentInfo: {
+    type: String,
+    optional: true,
+    canRead: [userOwns, 'sunshineRegiment', 'admins'],
+    canUpdate: ['admins'],
+    group: formGroups.adminOptions,
+  },
 });
 
 makeEditable({

@@ -111,6 +111,7 @@ importComponent("DefaultStyleFormGroup", () => require('../components/common/Def
 importComponent("LinkCard", () => require('../components/common/LinkCard'));
 importComponent("LWDialog", () => require('../components/common/LWDialog'));
 importComponent("Error404", () => require('../components/common/Error404'));
+importComponent("ErrorAccessDenied", () => require('../components/common/ErrorAccessDenied'));
 importComponent("PermanentRedirect", () => require('../components/common/PermanentRedirect'));
 importComponent("SeparatorBullet", () => require('../components/common/SeparatorBullet'));
 
@@ -139,6 +140,7 @@ importComponent(["PostLinkPreview", "PostLinkCommentPreview", "PostLinkPreviewSe
 importComponent("LinkToPost", () => require('../components/linkPreview/LinkToPost'));
 
 importComponent("BannedNotice", () => require('../components/users/BannedNotice'));
+importComponent("DraftsPage", () => require('../components/users/DraftsPage'));
 importComponent("UsersMenu", () => require('../components/users/UsersMenu'));
 importComponent("UsersEditForm", () => require('../components/users/UsersEditForm'));
 importComponent("NewUsersEditForm", () => require('../components/users/NewUsersEditForm'));

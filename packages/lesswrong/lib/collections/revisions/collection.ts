@@ -30,6 +30,7 @@ Revisions.checkAccess = async (user: DbUser|null, revision: DbRevision, context:
     return false;
   }
 
+
   // not sure why some revisions have no collectionName,
   // but this will cause an error below so just exclude them
   if (!revision.collectionName) return false

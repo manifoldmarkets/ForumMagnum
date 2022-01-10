@@ -270,6 +270,7 @@ registerFragment(`
     noCollapseCommentsPosts
     noCollapseCommentsFrontpage
     noSingleLineComments
+    beta
 
     # Emails
     email

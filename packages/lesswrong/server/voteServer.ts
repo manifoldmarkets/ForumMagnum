@@ -243,9 +243,9 @@ const getVotingRateLimits = async (user: DbUser|null) => {
     }
   }
   return {
-    perDay: 100,
-    perHour: 30,
-    perUserPerDay: 30,
+    perDay: 200,
+    perHour: 100,
+    perUserPerDay: 100,
   };
 }
 
@@ -307,7 +307,7 @@ export const recalculateDocumentScores = async (document: VoteableType, context:
   const nonblankVoteCount = votes.filter(v => (!!v.voteType && v.voteType !== "neutral") || votingSystem.isNonblankExtendedVote(v)).length;
   
   const baseScore = sumBy(votes, v=>v.power)
-  const afBaseScore = sumBy(afVotes, v=>v.power)
+  const afBaseScore = sumBy(afVotes, v=>v.afPower)
   
   return {
     baseScore, afBaseScore,

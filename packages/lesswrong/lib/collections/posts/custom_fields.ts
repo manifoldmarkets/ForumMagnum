@@ -756,6 +756,7 @@ addFieldsDict(Posts, {
       needsUpdate: data => ('googleLocation' in data),
       getValue: async (post) => {
         if (post.googleLocation) return googleLocationToMongoLocation(post.googleLocation)
+        return null
       }
     }),
   },

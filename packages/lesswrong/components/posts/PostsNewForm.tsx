@@ -80,11 +80,21 @@ export const styles = (theme: ThemeType): JssStyles => ({
 
     "& .form-submit": {
       textAlign: "right",
-    }
+    },
+    
+    "& .form-input.input-url": {
+      margin: 0,
+    },
+    "& .form-input.input-contents": {
+      marginTop: 0,
+    },
   },
   formSubmit: {
     display: "flex",
     flexWrap: "wrap",
+  },
+  collaborativeRedirectLink: {
+    color:  theme.palette.secondary.main
   }
 })
 
@@ -156,6 +166,7 @@ const PostsNewForm = ({classes}: {
             }}
             eventForm={eventForm}
             repeatErrors
+            noSubmitOnCmdEnter
             formComponents={{
               FormSubmit: NewPostsSubmit
             }}

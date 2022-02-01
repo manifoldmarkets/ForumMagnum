@@ -12,6 +12,7 @@ import fetch from 'node-fetch';
 import crypto from 'crypto';
 import fs from 'fs';
 import * as _ from 'underscore';
+import moment from 'moment';
 
 addStaticRoute('/ckeditor-webhook', async ({query}, req, res, next) => {
   if (req.method !== "POST") {
@@ -63,13 +64,50 @@ async function handleCkEditorWebhook(message: any) {
       break;
     }
     
+    case "storage.document.saved": {
+      // https://ckeditor.com/docs/cs/latest/guides/webhooks/events.html
+      // "Triggered when the document data is saved."
+      interface CkEditorDocumentSaved {
+        document: {
+          id: string,
+          saved_at: string,
+          download_url: string,
+        }
+      }
+      const documentSavedPayload = payload as CkEditorDocumentSaved;
+      const ckEditorDocumentId = documentSavedPayload?.document?.id;
+      const postId = ckEditorDocumentIdToPostId(ckEditorDocumentId);
+      const documentContents = await fetchCkEditorCloudStorageDocument(ckEditorDocumentId);
+      await saveOrUpdateDocumentRevision(postId, documentContents);
+      break;
+    }
+    case "collaboration.document.updated": {
+      // https://ckeditor.com/docs/cs/latest/guides/webhooks/events.html
+      // According to documentation, this is:
+      // "Triggered every 5 minutes or 5000 versions when the content of the collaboration session is being updated. The event will also be emitted when the last user disconnects from a collaboration session."
+      // 
+      interface CkEditorDocumentUpdated {
+        document: {
+          id: string
+          updated_at: string
+          version: number
+        }
+      }
+      const documentUpdatedPayload = payload as CkEditorDocumentUpdated;
+      const ckEditorDocumentId = documentUpdatedPayload?.document?.id;
+      const postId = ckEditorDocumentIdToPostId(ckEditorDocumentId);
+      const documentContents = await fetchCkEditorCloudStorageDocument(ckEditorDocumentId);
+      await saveOrUpdateDocumentRevision(postId, documentContents);
+      break;
+    }
+    
     case "comment.updated":
     case "comment.removed":
     case "commentthread.removed":
     case "commentthread.restored":
     case "document.user.connected":
       break;
-    case "document.user.disconnected":
+    case "document.user.disconnected": {
       interface CkEditorUserDisconnected {
         user: { id: string },
         document: { id: string },
@@ -82,8 +120,7 @@ async function handleCkEditorWebhook(message: any) {
       const postId = ckEditorDocumentIdToPostId(ckEditorDocumentId);
       await saveDocumentRevision(userId, postId, documentContents);
       break;
-      
-    case "storage.document.saved":
+    }
     case "document.removed":
     case "storage.document.removed":
     case "storage.document.save.failed":
@@ -108,6 +145,8 @@ function postIdToCkEditorDocumentId(postId: string) {
   return `${postId}-edit`;
 }
 
+const cloudEditorAutosaveCommitMessage = "Cloud editor autosave";
+
 async function saveDocumentRevision(userId: string, documentId: string, html: string) {
   const fieldName = "contents";
   const user = await Users.findOne(userId);
@@ -127,7 +166,7 @@ async function saveDocumentRevision(userId: string, documentId: string, html: st
     version: await getNextVersion(documentId, "patch", fieldName, true),
     draft: true,
     updateType: "patch",
-    commitMessage: "Cloud editor autosave",
+    commitMessage: cloudEditorAutosaveCommitMessage,
     changeMetrics: htmlToChangeMetrics(previousRev?.html || "", html),
   };
   await createMutator({
@@ -135,6 +174,33 @@ async function saveDocumentRevision(userId: string, documentId: string, html: st
     document: newRevision,
     validate: false,
   });
+}
+
+// If the latest rev is a CkEditor cloud editor autosave within the last
+// hour, update it. Otherwise create a new rev.
+async function saveOrUpdateDocumentRevision(postId: string, html: string) {
+  const fieldName = "contents";
+  const previousRev = await getLatestRev(postId, fieldName);
+  const lastEditedAt = previousRev ? moment(previousRev.editedAt).toDate().getTime() : 0; //In ms since epoch
+  const timeSinceLastEdit = new Date().getTime() - lastEditedAt; //In ms
+  
+  if (previousRev && timeSinceLastEdit < 60*60*1000 && previousRev.commitMessage===cloudEditorAutosaveCommitMessage) {
+    // eslint-disable-next-line no-console
+    console.log("Updating rev "+previousRev._id);
+    // Update the existing rev
+    await Revisions.update(
+      {_id: previousRev._id},
+      {$set: {
+        editedAt: new Date(),
+        originalContents: { data: html, type: "ckEditorMarkup" },
+      }}
+    )
+  } else {
+    const post = await Posts.findOne(postId);
+    const userId = post!.userId;
+    // Create a new rev
+    await saveDocumentRevision(userId, postId, html);
+  }
 }
 
 async function fetchCkEditorCloudStorageDocument(ckEditorId: string): Promise<string> {
@@ -146,6 +212,8 @@ async function fetchCkEditorCloudStorageDocument(ckEditorId: string): Promise<st
   try {
     return await fetchCkEditorRestAPI("GET", `/collaborations/${ckEditorId}`);
   } catch(e) {
+    // eslint-disable-next-line no-console
+    console.log("Downloading document via /collaborations failed. Trying via /documents.");
     return await fetchCkEditorRestAPI("GET", `/documents/${ckEditorId}`);
   }
 }
@@ -269,6 +337,7 @@ async function checkEditorBundle(bundleVersion: string): Promise<void> {
     throw new Error("Missing argument: bundleVersion");
   
   const result = await fetchCkEditorRestAPI("GET", `/editors/${bundleVersion}/exists`);
+  // eslint-disable-next-line no-console
   console.log(result);
 }
 Globals.checkEditorBundle = checkEditorBundle;

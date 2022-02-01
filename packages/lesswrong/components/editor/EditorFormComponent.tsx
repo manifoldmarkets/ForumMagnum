@@ -103,7 +103,7 @@ export const EditorFormComponent = ({form, formType, formProps, document, name, 
     if (autosave) {
       throttledSaveBackup(contents);
     }
-  }, [throttledSaveBackup, updateCurrentValues, fieldName]);
+  }, [throttledSaveBackup, updateCurrentValues, fieldName, isCollabEditor]);
   
   useEffect(() => {
     const unloadEventListener = (ev) => {
@@ -138,8 +138,8 @@ export const EditorFormComponent = ({form, formType, formProps, document, name, 
           return submission;
       });
       const cleanupSuccessForm = context.addToSuccessForm((result) => {
+        getLocalStorageHandlers(currentEditorType).reset();
         if (editorRef.current) {
-          getLocalStorageHandlers(currentEditorType).reset();
           wrappedSetContents({
             contents: getBlankEditorContents(initialEditorType),
             autosave: false,
@@ -173,10 +173,10 @@ export const EditorFormComponent = ({form, formType, formProps, document, name, 
         value={contents} setValue={wrappedSetContents}
       />
     }
-    <Components.LocalStorageCheck
+    {!isCollabEditor &&<Components.LocalStorageCheck
       getLocalStorageHandlers={getLocalStorageHandlers}
       onRestore={onRestoreLocalStorage}
-    />
+    />}
     <Components.Editor
       ref={editorRef}
       _classes={classes}
@@ -187,6 +187,7 @@ export const EditorFormComponent = ({form, formType, formProps, document, name, 
       fieldName={fieldName}
       initialEditorType={initialEditorType}
       isCollaborative={isCollabEditor}
+      accessLevel={document?.myEditorAccess}
       value={contents}
       onChange={wrappedSetContents}
       placeholder={actualPlaceholder}
@@ -199,6 +200,11 @@ export const EditorFormComponent = ({form, formType, formProps, document, name, 
       hasCommitMessages={hasCommitMessages}
     />
     {!hideControls && <Components.EditorTypeSelect value={contents} setValue={wrappedSetContents} isCollaborative={isCollaborative(document, fieldName)}/>}
+    {!hideControls && collectionName==="Posts" && fieldName==="contents" &&
+      <Components.PostVersionHistoryButton
+        postId={document?._id}
+      />
+    }
   </div>
 }
 

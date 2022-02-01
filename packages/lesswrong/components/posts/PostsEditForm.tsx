@@ -11,6 +11,8 @@ import { useDialog } from "../common/withDialog";
 import {useCurrentUser} from "../common/withUser";
 import { useUpdate } from "../../lib/crud/withUpdate";
 import { afNonMemberSuccessHandling } from "../../lib/alignment-forum/displayAFNonMemberPopups";
+import {testServerSetting} from "../../lib/instanceSettings";
+import { isCollaborative } from '../editor/EditorFormComponent';
 
 const PostsEditForm = ({ documentId, eventForm, classes }: {
   documentId: string,
@@ -34,7 +36,7 @@ const PostsEditForm = ({ documentId, eventForm, classes }: {
     return <div className={classes.formSubmit}>
       {!eventForm && <SubmitToFrontpageCheckbox {...props} />}
       <PostSubmit
-        saveDraftLabel={isDraft ? "Save as draft" : "Move to Drafts"}
+        saveDraftLabel={isDraft ? "Preview" : "Move to Drafts"}
         feedbackLabel={"Get Feedback"}
         {...props}
       />
@@ -59,6 +61,17 @@ const PostsEditForm = ({ documentId, eventForm, classes }: {
   if (document && document.draft && document.userId!==currentUser?._id && document.sharingSettings) {
     return <Components.PermanentRedirect url={`/collaborateOnPost?postId=${documentId}`} status={302}/>
   }
+  
+  if (!testServerSetting.get() && isCollaborative(document)) {
+    return <Components.SingleColumnSection>
+      <p>This post has experimental collaborative editing enabled.</p>
+      <p>It can only be edited on the development server.</p>
+      <a className={classes.collaborativeRedirectLink} href={`https://www.lessestwrong.com/editPost?postId=${document?._id}`}>
+        <h1>EDIT THE POST HERE</h1>
+      </a>
+    </Components.SingleColumnSection>
+  }
+  
   
   return (
     <div className={classes.postForm}>
@@ -98,6 +111,7 @@ const PostsEditForm = ({ documentId, eventForm, classes }: {
             version: 'String'
           }}
           version="draft"
+          noSubmitOnCmdEnter
           repeatErrors
         />
       </NoSsr>

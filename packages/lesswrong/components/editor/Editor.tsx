@@ -297,7 +297,7 @@ export class Editor extends Component<EditorProps,EditorComponentState> {
     switch(this.props.value.type) {
       case "draftJS":
         const draftJS = this.props.value.value.getCurrentContent()
-        data = draftJS.hasText() ? convertToRaw(draftJS) : null
+        data = convertToRaw(draftJS);
         break
       case "markdown":
       case "html":
@@ -420,11 +420,10 @@ export class Editor extends Component<EditorProps,EditorComponentState> {
   
   renderCkEditor = (contents: EditorContents) => {
     const { ckEditorReference } = this.state
-    const ckEditorValue = contents.value;
+    const value = (typeof contents?.value === 'string') ? contents.value : ckEditorReference?.getData();
     const { documentId, collectionName, fieldName, currentUser, commentEditor, formType, isCollaborative } = this.props
     const { Loading } = Components
     const CKEditor = commentEditor ? Components.CKCommentEditor : Components.CKPostEditor;
-    const value = ckEditorValue || ckEditorReference?.getData()
     if (!CKEditor) {
       return <Loading />
     } else {

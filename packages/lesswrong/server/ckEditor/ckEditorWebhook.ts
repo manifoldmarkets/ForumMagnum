@@ -2,7 +2,7 @@ import { addStaticRoute } from '../vulcan-lib/staticRoutes';
 import { Globals } from '../../lib/vulcan-lib/config';
 import { getCkEditorApiPrefix, getCkEditorEnvironmentId, getCkEditorSecretKey, getCkEditorApiSecretKey } from './ckEditorServerConfig';
 import { postEditorConfig } from '../../../../public/lesswrong-editor/src/editorConfigs';
-import { buildRevision, getNextVersion, getLatestRev, htmlToChangeMetrics } from '../editor/make_editable_callbacks';
+import { buildRevision, getNextVersion, getLatestRev, getPrecedingRev, htmlToChangeMetrics } from '../editor/make_editable_callbacks';
 import { Revisions } from '../../lib/collections/revisions/collection';
 import { Users } from '../../lib/collections/users/collection';
 import { Posts } from '../../lib/collections/posts/collection';
@@ -56,10 +56,14 @@ async function handleCkEditorWebhook(message: any) {
       };
       const commentAddedPayload = payload as CkEditorCommentAdded;
       
+      const thread = await fetchCkEditorCommentThread(payload?.comment?.thread_id);
+      const commentersInThread: string[] = _.uniq(thread.map(comment => comment?.user?.id));
+      
       await notifyCkEditorCommentAdded({
         commenterUserId: payload?.comment?.user?.id,
         commentHtml: payload?.comment?.content,
         postId: ckEditorDocumentIdToPostId(payload?.document?.id),
+        commentersInThread,
       });
       break;
     }
@@ -152,39 +156,60 @@ async function saveDocumentRevision(userId: string, documentId: string, html: st
   const user = await Users.findOne(userId);
   const previousRev = await getLatestRev(documentId, fieldName);
   
-  const newRevision: Partial<DbRevision> = {
-    ...await buildRevision({
-      originalContents: {
-        data: html,
-        type: "ckEditorMarkup",
-      },
-      currentUser: user,
-    }),
-    documentId,
-    fieldName,
-    collectionName: "Posts",
-    version: await getNextVersion(documentId, "patch", fieldName, true),
-    draft: true,
-    updateType: "patch",
-    commitMessage: cloudEditorAutosaveCommitMessage,
-    changeMetrics: htmlToChangeMetrics(previousRev?.html || "", html),
-  };
-  await createMutator({
-    collection: Revisions,
-    document: newRevision,
-    validate: false,
-  });
+  const newOriginalContents = {
+    data: html,
+    type: "ckEditorMarkup",
+  }
+  
+  if (!previousRev || !_.isEqual(newOriginalContents, previousRev.originalContents)) {
+    const newRevision: Partial<DbRevision> = {
+      ...await buildRevision({
+        originalContents: newOriginalContents,
+        currentUser: user,
+      }),
+      documentId,
+      fieldName,
+      collectionName: "Posts",
+      version: await getNextVersion(documentId, "patch", fieldName, true),
+      draft: true,
+      updateType: "patch",
+      commitMessage: cloudEditorAutosaveCommitMessage,
+      changeMetrics: htmlToChangeMetrics(previousRev?.html || "", html),
+    };
+    await createMutator({
+      collection: Revisions,
+      document: newRevision,
+      validate: false,
+    });
+  }
 }
+
+// Time interval such that, when autosaving, we will update an existing
+// rev instead of create a new rev if it's within this amount of time ago. In
+// milliseconds.
+const autosaveMaxInterval = 10*60*1000;
 
 // If the latest rev is a CkEditor cloud editor autosave within the last
 // hour, update it. Otherwise create a new rev.
 async function saveOrUpdateDocumentRevision(postId: string, html: string) {
   const fieldName = "contents";
   const previousRev = await getLatestRev(postId, fieldName);
-  const lastEditedAt = previousRev ? moment(previousRev.editedAt).toDate().getTime() : 0; //In ms since epoch
+  
+  // Time relative to which to compute the max autosave interval, in ms since
+  // epoch.
+  const lastEditedAt = previousRev
+    ? moment(previousRev.autosaveTimeoutStart || previousRev.editedAt).toDate().getTime()
+    : 0;
   const timeSinceLastEdit = new Date().getTime() - lastEditedAt; //In ms
   
-  if (previousRev && timeSinceLastEdit < 60*60*1000 && previousRev.commitMessage===cloudEditorAutosaveCommitMessage) {
+  if (previousRev
+    && previousRev.draft
+    && timeSinceLastEdit < autosaveMaxInterval
+    && previousRev.commitMessage===cloudEditorAutosaveCommitMessage
+  ) {
+    // Get the revision prior to the one being replaced, for computing change metrics
+    const precedingRev = await getPrecedingRev(previousRev);
+    
     // eslint-disable-next-line no-console
     console.log("Updating rev "+previousRev._id);
     // Update the existing rev
@@ -192,7 +217,9 @@ async function saveOrUpdateDocumentRevision(postId: string, html: string) {
       {_id: previousRev._id},
       {$set: {
         editedAt: new Date(),
+        autosaveTimeoutStart: previousRev.autosaveTimeoutStart || previousRev.editedAt,
         originalContents: { data: html, type: "ckEditorMarkup" },
+        changeMetrics: htmlToChangeMetrics(precedingRev?.html || "", html),
       }}
     )
   } else {
@@ -218,16 +245,55 @@ async function fetchCkEditorCloudStorageDocument(ckEditorId: string): Promise<st
   }
 }
 
-async function notifyCkEditorCommentAdded({commenterUserId, commentHtml, postId}: {
+interface CkEditorComment {
+    id: string,
+    document_id: string,
+    thread_id: string,
+    content: string,
+    user: {id: string},
+    created_at: string,
+    updated_at: string,
+    attributes: any,
+}
+interface CkEditorGetCommentsResponse {
+  cursor_next: string,
+  cursor_prev: string,
+  data: CkEditorComment[],
+}
+
+async function fetchCkEditorCommentThread(threadId: string): Promise<CkEditorComment[]> {
+  // Fetch a comment thread. Used to find out who should be notified of new
+  // comments in that thread.
+  //
+  // The REST API has pagination, which we don't handle. Instead we just set the
+  // limit to the maximum (according to the documentation at
+  // https://help.cke-cs.com/api/v4/docs#tag/Comments/paths/~1comments/get); if
+  // a CkEditor thread somehow has more comments than that, then new commenters
+  // won't subscribed after the 1000th comment, which is not a big problem.
+  const limit = 1000;
+  
+  const response = await fetchCkEditorRestAPI("GET", `/comments?thread_id=${threadId}&limit=${limit}`);
+  const parsedResponse: CkEditorGetCommentsResponse = JSON.parse(response);
+  return parsedResponse.data;
+}
+
+async function notifyCkEditorCommentAdded({commenterUserId, commentHtml, postId, commentersInThread}: {
   commenterUserId: string,
   commentHtml: string,
   postId: string,
+  commentersInThread: string[],
 }) {
   const post = await Posts.findOne({_id: postId});
   if (!post) throw new Error(`Couldn't find post for CkEditor comment notification: ${postId}`);
   
-  const authorAndCoauthors = [post.userId, ...(post.coauthorUserIds||[])];
-  const usersToNotify = _.filter(authorAndCoauthors, u=>u!==commenterUserId);
+  // Notify the main author of the post, the coauthors if any, and everyone
+  // who's commented in the thread. Then filter out the person who wrote the
+  // comment themself.
+  const usersToNotify = _.uniq(_.filter(
+    [post.userId, ...(post.coauthorUserIds||[]), ...commentersInThread],
+    u=>(!!u && u!==commenterUserId)
+  ));
+  
   // eslint-disable-next-line no-console
   console.log(`New CkEditor comment. Notifying users: ${JSON.stringify(usersToNotify)}`);
   

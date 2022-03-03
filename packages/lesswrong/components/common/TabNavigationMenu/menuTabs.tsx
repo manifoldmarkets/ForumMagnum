@@ -13,6 +13,7 @@ import LocalOffer from '@material-ui/icons/LocalOffer';
 import Sort from '@material-ui/icons/Sort'
 import Info from '@material-ui/icons/Info';
 import LocalLibrary from '@material-ui/icons/LocalLibrary';
+import PlaylistAddCheck from '@material-ui/icons/PlaylistAddCheck';
 import EventIcon from '@material-ui/icons/Event';
 import SupervisedUserCircleIcon from '@material-ui/icons/SupervisedUserCircle';
 import { communityPath } from '../../../lib/routes';
@@ -287,14 +288,20 @@ export const menuTabs: ForumOptions<Array<MenuTab>> = {
       id: 'replacing-guilt',
       title: 'Replacing Guilt',
       link: '/s/a2LBRPLhvwB83DSGq',
-      tooltip: "Nate Soares writes about replacing guilt with other feelings, exercising self-compassion, and developing confidence — so that we can create a better world.",
+      tooltip: "Nate Soares writes about replacing guilt with other feelings and finding better ways to motivate yourself, so you can build a better future without falling apart.",
       subItem: true,
     }, {
       id: 'most-important-century',
       title: 'Most Important Century',
       link: '/s/isENJuPdB3fhjWYHd',
-      tooltip: `Holden Karnofsky argues that there's a good chance of a productivity explosion by 2100, which could quickly lead to a "technologically mature" civilization.`,
+      tooltip: `Holden Karnofsky argues that we may be living in the most important century ever — a time when our decisions could shape the future for billions of years to come.`,
       subItem: true,
+    }, {
+      id: 'takeAction',
+      title: 'Take Action',
+      link: '/tag/take-action',
+      iconComponent: PlaylistAddCheck,
+      tooltip: "Opportunities to get involved with impactful work",
     }, {
       id: 'events',
       title: 'Events',
@@ -311,7 +318,7 @@ export const menuTabs: ForumOptions<Array<MenuTab>> = {
       title: 'Community',
       link: communityPath,
       iconComponent: SupervisedUserCircleIcon,
-      tooltip: 'See EA groups and community members in your area',
+      tooltip: 'Join a group near you or meet others online',
       showOnMobileStandalone: false,
       showOnCompressed: true
     }, {

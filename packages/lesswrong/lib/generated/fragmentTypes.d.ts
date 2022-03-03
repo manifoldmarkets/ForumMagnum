@@ -95,6 +95,7 @@ interface LocalgroupsDefaultFragment { // fragment on Localgroups
   readonly facebookLink: string,
   readonly facebookPageLink: string,
   readonly meetupLink: string,
+  readonly slackLink: string,
   readonly website: string,
   readonly inactive: boolean,
   readonly bannerImageId: string,
@@ -257,6 +258,7 @@ interface TagsDefaultFragment { // fragment on Tags
   readonly reviewedByUserId: string,
   readonly wikiGrade: number,
   readonly wikiOnly: boolean,
+  readonly bannerImageId: string,
   readonly tagFlagsIds: Array<string>,
   readonly lesswrongWikiImportRevision: string,
   readonly lesswrongWikiImportSlug: string,
@@ -604,10 +606,12 @@ interface PostsPage extends PostsDetails { // fragment on Posts
   readonly version: string,
   readonly contents: RevisionDisplay|null,
   readonly myEditorAccess: string,
+  readonly linkSharingKey: string,
 }
 
 interface PostsEdit extends PostsDetails { // fragment on Posts
   readonly myEditorAccess: string,
+  readonly linkSharingKey: string,
   readonly version: string,
   readonly coauthorUserIds: Array<string>,
   readonly moderationGuidelines: RevisionEdit|null,
@@ -1218,6 +1222,7 @@ interface localGroupsBase { // fragment on Localgroups
   readonly facebookLink: string,
   readonly facebookPageLink: string,
   readonly meetupLink: string,
+  readonly slackLink: string,
   readonly website: string,
   readonly inactive: boolean,
   readonly bannerImageId: string,
@@ -1410,6 +1415,7 @@ interface TagDetailsFragment extends TagBasicInfo { // fragment on Tags
   readonly defaultOrder: number,
   readonly reviewedByUserId: string,
   readonly wikiGrade: number,
+  readonly bannerImageId: string,
   readonly lesswrongWikiImportSlug: string,
   readonly lesswrongWikiImportRevision: string,
 }

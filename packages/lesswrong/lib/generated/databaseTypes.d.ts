@@ -251,6 +251,7 @@ interface DbLocalgroup extends DbObject {
   facebookLink: string
   facebookPageLink: string
   meetupLink: string
+  slackLink: string
   website: string
   inactive: boolean
   bannerImageId: string
@@ -444,6 +445,8 @@ interface DbPost extends DbObject {
   metaSticky: boolean
   sharingSettings: any /*{"definitions":[{"blackbox":true}]}*/
   shareWithUsers: Array<string>
+  linkSharingKey: string
+  linkSharingKeyUsedBy: Array<string>
   commentSortOrder: string
   hideAuthor: boolean
   moderationStyle: string
@@ -642,6 +645,7 @@ interface DbTag extends DbObject {
   reviewedByUserId: string
   wikiGrade: number
   wikiOnly: boolean
+  bannerImageId: string
   tagFlagsIds: Array<string>
   lesswrongWikiImportRevision: string
   lesswrongWikiImportSlug: string

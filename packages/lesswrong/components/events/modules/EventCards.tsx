@@ -9,6 +9,7 @@ import { prettyEventDateTimes } from '../../../lib/collections/posts/helpers';
 import { useTimezone } from '../../common/withTimezone';
 import { forumTypeSetting } from '../../../lib/instanceSettings';
 import { getDefaultEventImg } from './HighlightedEventCard';
+import { useCurrentUser } from '../../common/withUser';
 
 const styles = createStyles((theme: ThemeType): JssStyles => ({
   noResults: {
@@ -46,6 +47,9 @@ const styles = createStyles((theme: ThemeType): JssStyles => ({
     borderRadius: 0,
     overflow: 'visible',
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    [theme.breakpoints.down('xs')]: {
+      maxWidth: '100vw'
+    }
   },
   eventCardContent: {
     position: 'relative',
@@ -55,6 +59,11 @@ const styles = createStyles((theme: ThemeType): JssStyles => ({
     ...theme.typography.commentStyle,
     fontSize: 14,
     color: theme.palette.primary.main
+  },
+  eventCardTimeApply: {
+    color: "rgba(0, 0, 0, 0.5)",
+    fontSize: 11,
+    marginRight: 5
   },
   eventCardTitle: {
     ...theme.typography.headline,
@@ -99,12 +108,14 @@ const styles = createStyles((theme: ThemeType): JssStyles => ({
 }))
 
 
-const EventCards = ({events, loading, numDefaultCards, classes}: {
+const EventCards = ({events, loading, numDefaultCards, hideSpecialCards, classes}: {
   events?: PostsList[],
   loading?: boolean,
   numDefaultCards?: number,
+  hideSpecialCards?: boolean,
   classes: ClassesType,
 }) => {
+  const currentUser = useCurrentUser()
   const { timezone } = useTimezone()
   
   const getEventLocation = (event: PostsList): string => {
@@ -112,7 +123,7 @@ const EventCards = ({events, loading, numDefaultCards, classes}: {
     return event.location ? event.location.slice(0, event.location.lastIndexOf(',')) : ''
   }
   
-  const { AddToCalendarIcon, PostsItemTooltipWrapper, CloudinaryImage2 } = Components
+  const { AddToCalendarIcon, PostsItemTooltipWrapper, CloudinaryImage2, VirtualProgramCard } = Components
   
   // while the data is loading, show some placeholder empty cards
   if (loading && !events?.length) {
@@ -140,34 +151,51 @@ const EventCards = ({events, loading, numDefaultCards, classes}: {
       </div>
     </div>
   }
+  
+  const eventCards = events.map(event => {
+    return <Card key={event._id} className={classes.eventCard}>
+      <Link to={`/events/${event._id}/${event.slug}`}>
+        {event.eventImageId ?
+          <CloudinaryImage2 height={200} width={373} publicId={event.eventImageId} /> :
+          <img src={getDefaultEventImg(373)} style={{height: 200, width: 373}} />}
+      </Link>
+      <CardContent className={classes.eventCardContent}>
+        <div className={classes.eventCardTime}>
+          {event.eventType === 'course' && <span className={classes.eventCardTimeApply}>Apply by</span>}
+          {prettyEventDateTimes(event, timezone, true)}
+        </div>
+        <PostsItemTooltipWrapper post={event}>
+          <div className={classes.eventCardTitle}>
+            <Link to={`/events/${event._id}/${event.slug}`}>{event.title}</Link>
+          </div>
+        </PostsItemTooltipWrapper>
+        <div className={classes.eventCardLocation}>{getEventLocation(event)}</div>
+        {event.group && <div className={classes.eventCardGroup} title={event.group.name}>
+          <Link to={`/groups/${event.group._id}`}>{event.group.name}</Link>
+        </div>}
+        <div className={classes.addToCal}>
+          <AddToCalendarIcon post={event} />
+        </div>
+      </CardContent>
+    </Card>
+  })
+  
+  // on the EA Forum, insert card(s) advertising Virtual Programs
+  if (forumTypeSetting.get() === 'EAForum' && !hideSpecialCards) {
+    // NOTE: splice() will just insert the card at the end of the list if the first param > length
+    if (currentUser) {
+      // for logged in users, just display the In-Depth / Precipice VP card
+      eventCards.splice(2, 0, <VirtualProgramCard key="advancedVP" program="advanced" />)
+    } else {
+      // for logged logged out users, display both VP cards
+      eventCards.splice(2, 0, <VirtualProgramCard key="introVP" program="intro" />)
+      // we try to space out the two cards
+      eventCards.splice(5, 0, <VirtualProgramCard key="advancedVP" program="advanced" />)
+    }
+  }
 
   return <>
-    {events.map(event => {
-      return <Card key={event._id} className={classes.eventCard}>
-        <Link to={`/events/${event._id}/${event.slug}`}>
-          {event.eventImageId ?
-            <CloudinaryImage2 height={200} width={373} publicId={event.eventImageId} /> :
-            <img src={getDefaultEventImg(373)} style={{height: 200, width: 373}} />}
-        </Link>
-        <CardContent className={classes.eventCardContent}>
-          <div className={classes.eventCardTime}>
-            {prettyEventDateTimes(event, timezone, true)}
-          </div>
-          <PostsItemTooltipWrapper post={event}>
-            <div className={classes.eventCardTitle}>
-              <Link to={`/events/${event._id}/${event.slug}`}>{event.title}</Link>
-            </div>
-          </PostsItemTooltipWrapper>
-          <div className={classes.eventCardLocation}>{getEventLocation(event)}</div>
-          {event.group && <div className={classes.eventCardGroup} title={event.group.name}>
-            <Link to={`/groups/${event.group._id}`}>{event.group.name}</Link>
-          </div>}
-          <div className={classes.addToCal}>
-            <AddToCalendarIcon post={event} />
-          </div>
-        </CardContent>
-      </Card>
-    })}
+    {eventCards}
   </>
 }
 

@@ -45,12 +45,14 @@ export const linkIsExcludedFromPreview = (url: string): boolean => {
 //   contentSourceDescription: (Optional) A human-readabe string describing
 //     where this content came from. Used in error logging only, not displayed
 //     to users.
-const HoverPreviewLink = ({ innerHTML, href, contentSourceDescription, id, rel }: {
+const HoverPreviewLink = ({ innerHTML, href, contentSourceDescription, id, rel, noPrefetch }: {
   innerHTML: string,
   href: string,
   contentSourceDescription?: string,
   id?: string,
-  rel?: string
+  rel?: string,
+  // Only Implemented for Tag Hover Previews
+  noPrefetch?: boolean,
 }) => {
   const URLClass = getUrlClass()
   const location = useLocation();
@@ -82,7 +84,7 @@ const HoverPreviewLink = ({ innerHTML, href, contentSourceDescription, id, rel }
 
         if (PreviewComponent) {
           return <AnalyticsContext pageElementContext="linkPreview" href={destinationUrl} hoverPreviewType={parsedUrl.currentRoute.previewComponentName} onsite>
-            <PreviewComponent href={destinationUrl} targetLocation={parsedUrl} innerHTML={innerHTML} id={id}/>
+            <PreviewComponent href={destinationUrl} targetLocation={parsedUrl} innerHTML={innerHTML} id={id} noPrefetch={noPrefetch}/>
           </AnalyticsContext>
         } else {
           return <Components.DefaultPreview href={href} innerHTML={innerHTML} id={id} rel={rel} />
@@ -94,6 +96,9 @@ const HoverPreviewLink = ({ innerHTML, href, contentSourceDescription, id, rel }
       }
       if (linkTargetAbsolute.host === "metaculus.com" || linkTargetAbsolute.host === "www.metaculus.com") {
         return <Components.MetaculusPreview href={href} innerHTML={innerHTML} id={id} />
+      }
+      if (linkTargetAbsolute.host === "ourworldindata.org") {
+        return <Components.OWIDPreview href={href} innerHTML={innerHTML} id={id} />
       }
       if (linkTargetAbsolute.host === "arbital.com" || linkTargetAbsolute.host === "www.arbital.com") {
         return <Components.ArbitalPreview href={href} innerHTML={innerHTML} id={id} />
@@ -116,4 +121,3 @@ declare global {
     HoverPreviewLink: typeof HoverPreviewLinkComponent
   }
 }
-

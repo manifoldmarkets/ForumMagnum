@@ -4,6 +4,7 @@ import { useSingle } from '../../lib/crud/withSingle';
 import { useMessages } from '../common/withMessages';
 import { Posts } from '../../lib/collections/posts';
 import { postGetPageUrl, postGetEditUrl } from '../../lib/collections/posts/helpers';
+import { userIsSharedOn } from '../../lib/collections/users/helpers';
 import { useLocation, useNavigation } from '../../lib/routeUtil'
 import NoSsr from '@material-ui/core/NoSsr';
 import { styles } from './PostsNewForm';
@@ -11,13 +12,11 @@ import { useDialog } from "../common/withDialog";
 import {useCurrentUser} from "../common/withUser";
 import { useUpdate } from "../../lib/crud/withUpdate";
 import { afNonMemberSuccessHandling } from "../../lib/alignment-forum/displayAFNonMemberPopups";
-import {forumTypeSetting, testServerSetting} from "../../lib/instanceSettings";
 import { isCollaborative } from '../editor/EditorFormComponent';
 import { userIsAdmin } from '../../lib/vulcan-users/permissions';
 
-const PostsEditForm = ({ documentId, eventForm, classes }: {
+const PostsEditForm = ({ documentId, classes }: {
   documentId: string,
-  eventForm: boolean,
   classes: ClassesType,
 }) => {
   const { location, query } = useLocation();
@@ -33,16 +32,13 @@ const PostsEditForm = ({ documentId, eventForm, classes }: {
   const { params } = location; // From withLocation
   const isDraft = document && document.draft;
   const { WrappedSmartForm, PostSubmit, SubmitToFrontpageCheckbox, HeadTags } = Components
-  const EditPostsSubmit = (props) => {
-    return <div className={classes.formSubmit}>
-      {!eventForm && <SubmitToFrontpageCheckbox {...props} />}
-      <PostSubmit
-        saveDraftLabel={isDraft ? "Preview" : "Move to Drafts"}
-        feedbackLabel={"Get Feedback"}
-        {...props}
-      />
-    </div>
-  }
+  
+  const saveDraftLabel: string = ((post) => {
+    if (!post) return "Save Draft"
+    if (!post.draft) return "Move to Drafts"
+    if (isCollaborative(post, "contents")) return "Preview"
+    return "Save Draft"
+  })(document)
   
   const { mutate: updatePost } = useUpdate({
     collectionName: "Posts",
@@ -55,6 +51,10 @@ const PostsEditForm = ({ documentId, eventForm, classes }: {
     return <Components.SingleColumnSection>
       <Components.WrappedLoginForm/>
     </Components.SingleColumnSection>
+  }
+  
+  if (!document && loading) {
+    return <Components.Loading/>
   }
 
   // If we only have read access to this post, but it's shared with us,
@@ -75,10 +75,41 @@ const PostsEditForm = ({ documentId, eventForm, classes }: {
   }
   
   // If the post has a link-sharing key which is not in the URL, redirect to add
-  // the link-sharing key to the URL
+  // the link-sharing key to the URL. (linkSharingKey has field-level
+  // permissions so it will only be present if we've either already used the
+  // link-sharing key, or have access through something other than link-sharing.)
   if (document?.linkSharingKey && !(query?.key)) {
     return <Components.PermanentRedirect url={postGetEditUrl(document._id, false, document.linkSharingKey)} status={302}/>
   }
+  
+  // If we don't have the post and none of the earlier cases applied, we either
+  // have an invalid post ID or the post is a draft that we don't have access
+  // to.
+  if (!document) {
+    return <Components.Error404/>
+  }
+  
+  // If we have access to the post but only readonly access and only because
+  // it's published, don't show the edit form.
+  if (
+    document.userId !== currentUser?._id
+    && !userIsSharedOn(currentUser, document)
+    && !userIsAdmin(currentUser)
+  ) {
+    return <Components.ErrorAccessDenied/>
+  }
+  
+  const EditPostsSubmit = (props) => {
+    return <div className={classes.formSubmit}>
+      {!document.isEvent && <SubmitToFrontpageCheckbox {...props} />}
+      <PostSubmit
+        saveDraftLabel={saveDraftLabel} 
+        feedbackLabel={"Get Feedback"}
+        {...props}
+      />
+    </div>
+  }
+  
   
   return (
     <div className={classes.postForm}>
@@ -99,7 +130,7 @@ const PostsEditForm = ({ documentId, eventForm, classes }: {
               flash({ messageString: `Post "${post.title}" edited.`, type: 'success'});
             }
           }}
-          eventForm={eventForm}
+          eventForm={document.isEvent}
           removeSuccessCallback={({ documentId, documentTitle }) => {
             // post edit form is being included from a single post, redirect to index
             // note: this.props.params is in the worst case an empty obj (from react-router)

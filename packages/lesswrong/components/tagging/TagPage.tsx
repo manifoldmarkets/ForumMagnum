@@ -15,6 +15,9 @@ import { useCurrentUser } from '../common/withUser';
 import { MAX_COLUMN_WIDTH } from '../posts/PostsPage/PostsPage';
 import { EditTagForm } from './EditTagPage';
 import { useTagBySlug } from './useTag';
+import { forumTypeSetting } from '../../lib/instanceSettings';
+
+const isEAForum = forumTypeSetting.get() === 'EAForum'
 
 // Also used in TagCompareRevisions, TagDiscussionPage
 export const styles = (theme: ThemeType): JssStyles => ({
@@ -148,9 +151,12 @@ export const tagPostTerms = (tag: TagBasicInfo | null, query: any) => {
 const TagPage = ({classes}: {
   classes: ClassesType
 }) => {
-  const { PostsListSortDropdown, PostsList2, ContentItemBody, Loading, AddPostsToTag, Error404, PermanentRedirect,
-    HeadTags, UsersNameDisplay, TagFlagItem, TagDiscussionSection, Typography, TagPageButtonRow, ToCColumn,
-    TableOfContents, TableOfContentsRow, TagContributorsList, SubscribeButton, CloudinaryImage } = Components;
+  const {
+    PostsListSortDropdown, PostsList2, ContentItemBody, Loading, AddPostsToTag, Error404,
+    PermanentRedirect, HeadTags, UsersNameDisplay, TagFlagItem, TagDiscussionSection, Typography,
+    TagPageButtonRow, ToCColumn, TableOfContents, TableOfContentsRow, TagContributorsList,
+    SubscribeButton, CloudinaryImage2, TagIntroSequence, SectionTitle
+   } = Components;
   const currentUser = useCurrentUser();
   const { query, params: { slug } } = useLocation();
   const { revision } = query;
@@ -239,7 +245,7 @@ const TagPage = ({classes}: {
   }
 
   const htmlWithAnchors = tag.tableOfContents?.html || tag.description?.html;
-  const description = (truncated && !tag.wikiOnly)
+  const description = (truncated && !tag.wikiOnly && !isEAForum)
     ? truncate(htmlWithAnchors, tag.descriptionTruncationCount || 4, "paragraphs", "<span>...<p><a>(Read More)</a></p></span>")
     : htmlWithAnchors
   const headTagDescription = tag.description?.plaintextDescription || `All posts related to ${tag.name}, sorted by relevance`
@@ -263,10 +269,10 @@ const TagPage = ({classes}: {
       {`.by_${hoveredContributorId} {background: rgba(95, 155, 101, 0.35);}`}
     </style>}
     {tag.bannerImageId && <div className={classes.imageContainer}>
-      <CloudinaryImage
+      <CloudinaryImage2
         publicId={tag.bannerImageId}
-        width="auto"
         height={300}
+        fullWidthHeader
       />
     </div>}
     <div className={tag.bannerImageId ? classes.rootGivenImage : ''}>
@@ -344,11 +350,17 @@ const TagPage = ({classes}: {
             key={tag._id}
             tag={tag}
           />}
+          {tag.sequence && <TagIntroSequence tag={tag} />}
           {!tag.wikiOnly && <AnalyticsContext pageSectionContext="tagsSection">
-            <div className={classes.tagHeader}>
-              <div className={classes.postsTaggedTitle}>Posts tagged <em>{tag.name}</em></div>
-              <PostsListSortDropdown value={query.sortedBy || "relevance"}/>
-            </div>
+            {tag.sequence ?
+              <SectionTitle title={`Posts tagged ${tag.name}`}>
+                <PostsListSortDropdown value={query.sortedBy || "relevance"}/>
+              </SectionTitle> :
+              <div className={classes.tagHeader}>
+                <div className={classes.postsTaggedTitle}>Posts tagged <em>{tag.name}</em></div>
+                <PostsListSortDropdown value={query.sortedBy || "relevance"}/>
+              </div>
+            }
             <PostsList2
               terms={terms}
               enableTotal

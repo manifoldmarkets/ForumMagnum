@@ -53,7 +53,7 @@ registerFragment(`
     auto_subscribe_to_my_comments
     autoSubscribeAsOrganizer
     petrovPressedButtonDate
-    sortDrafts
+    sortDraftsBy
     reenableDraftJs
     ...SunshineUsersList
     ...SharedUserBooleans
@@ -86,6 +86,9 @@ registerFragment(`
     allPostsShowLowKarma
     allPostsIncludeEvents
     allPostsOpenSettings
+    draftsListSorting
+    draftsListShowArchived
+    draftsListShowShared
     lastNotificationsCheck
     bannedUserIds
     bannedPersonalUserIds
@@ -146,7 +149,7 @@ registerFragment(`
     abTestKey
     abTestOverrides
 
-    sortDrafts
+    sortDraftsBy
 
     reenableDraftJs
     petrovPressedButtonDate
@@ -303,6 +306,9 @@ registerFragment(`
     mongoLocation
     googleLocation
     location
+    
+    # Map Location (public)
+    mapLocation
 
     # Admin & Review
     reviewedByUserId

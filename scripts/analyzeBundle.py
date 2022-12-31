@@ -12,10 +12,10 @@ def isDividerLine(line):
         and all([c=='/' for c in line[0:-1]]))
 
 def isSpacerLine(line):
-    # At least 80 chars, starting with "//", ending with "//\n", otherwise all spaces
-    return (len(line)>=80
-        and line.startswith("//") and line.endswith("//\n")
+    # Starting with "//", ending with "//\n", otherwise all spaces
+    return (line.startswith("//") and line.endswith("//\n")
         and all([c==' ' for c in line[2:-3]]))
+
 
 assert isDividerLine("////////////////////////////////////////////////////////////////////////////////////\n")
 assert isSpacerLine("//                                                                                //\n")
